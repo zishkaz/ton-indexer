@@ -1,0 +1,187 @@
+version: '3.9'
+services:
+  rabbitmq:
+    image: rabbitmq:latest
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.labels.${TONCENTER_ENV:?}.indexer.broker==true"
+    networks:
+      - internal
+  redis:
+    image: redis:latest
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.labels.${TONCENTER_ENV:?}.indexer.broker==true"
+    networks:
+      - internal
+  postgres:
+    image: postgres
+    environment: 
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    ports:
+      - 5432:5432
+    secrets:
+      - postgres_password
+    command: postgres -c shared_buffers=2048MB -c max_connections=1024
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    tmpfs:
+      - /shm_tmp:size=2048M
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - type: tmpfs
+        target: /dev/shm
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.labels.${TONCENTER_ENV:?}.indexer.storage==true"
+    networks:
+      - internal
+  indexer-worker-${INDEXER_WORKER_NAME}:
+    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    build:
+      context: indexer
+      dockerfile: Dockerfile
+      args:
+        TON_REPO: dungeon-master-666/ton
+        TON_BRANCH: 28b4fa4decddb303aaa94f76804a89630ad6314c  
+    command: celery -A indexer.core worker --loglevel=INFO -E --autoscale=${TON_INDEXER_MAX_WORKERS:-8},${TON_INDEXER_MIN_WORKERS:-1} \
+             -Q backward_queue_${INDEXER_REV:?},forward_queue_${INDEXER_REV:?}
+    environment: &indexer-environment
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DBNAME: ton_index_${INDEXER_REV:?}
+      TON_INDEXER_LITESERVER_CONFIG: /run/secrets/tonlib_config
+      TON_INDEXER_AMQP_DSN: amqp://rabbitmq:5672
+      TON_INDEXER_REDIS_DSN: redis://redis:6379
+      TON_INDEXER_CDLL_PATH: /app/libtonlibjson.so
+      TON_INDEXER_API_ROOT_PATH:
+      TON_INDEXER_BLOCKS_PER_TASK:
+      TON_INDEXER_MAX_TASKS_PER_CHILD:
+      TON_INDEXER_TASK_TIME_LIMIT: 1200
+      TON_INDEXER_MIN_WORKERS:
+      TON_INDEXER_MAX_WORKERS:
+      TON_INDEXER_MAX_SCHEDULED_TASKS:
+      TON_INDEXER_USE_EXT_METHOD:
+      TON_INDEXER_START_SEQNO:
+      TON_INDEXER_BOTTOM_SEQNO:
+    secrets:
+      - postgres_password
+      - tonlib_config
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.labels.${TONCENTER_ENV:?}.indexer.worker-${INDEXER_REV:?}==true"
+    tty: true
+    networks:
+      - internal
+  indexer-scheduler-backward-${INDEXER_WORKER_NAME}:
+    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    command: python3 -m indexer.scheduler backward backward_queue_${INDEXER_REV:?}
+    environment: *indexer-environment
+    secrets:
+      - postgres_password
+      - tonlib_config
+    networks:
+      - internal
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.labels.${TONCENTER_ENV:?}.indexer.worker-${INDEXER_REV:?}==true"
+  indexer-scheduler-forward-${INDEXER_WORKER_NAME}:
+    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    command: python3 -m indexer.scheduler forward forward_queue_${INDEXER_REV:?}
+    environment: *indexer-environment
+    secrets:
+      - postgres_password
+      - tonlib_config
+    networks:
+      - internal
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.labels.${TONCENTER_ENV:?}.indexer.worker-${INDEXER_REV:?}==true"
+  indexer-api-${INDEXER_WORKER_NAME}:
+    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    secrets:
+      - postgres_password
+      - tonlib_config
+    command: gunicorn indexer.web:app -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:8081
+    environment: *indexer-environment 
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - "node.hostname==toncenter-dev"
+    networks:
+      internal:
+      main:
+# monitoring
+  flower:
+    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    environment: *indexer-environment
+    secrets:
+      - postgres_password
+      - tonlib_config
+    command: celery -A indexer.core --broker=amqp://rabbitmq:5672 flower
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.labels.${TONCENTER_ENV:?}.indexer.broker==true"
+    networks:
+      internal:
+      monitor_main:
+        aliases:
+          - ${TONCENTER_ENV:?}_flower
+volumes:
+  postgres_data:
+    external: false
+networks:
+  internal:
+    external: false
+    attachable: true
+  monitor_main:
+    external: true
+  main:
+    name: ${TONCENTER_ENV:?}_main
+    external: true
+secrets:
+  postgres_password:
+    file: private/postgres_password
+  tonlib_config:
+    file: ${TON_INDEXER_LITESERVER_CONFIG:?}

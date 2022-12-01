@@ -1,0 +1,27 @@
+aiocache
+aioprocessing
+aioredis
+crc16
+fastapi
+gunicorn
+uvicorn
+loguru
+pydantic
+pyyaml
+redis
+ring
+tvm_valuetypes
+celery[redis]
+psycopg2-binary
+sqlalchemy[asyncio]
+asyncpg
+sqlalchemy-utils
+tqdm
+requests
+asgiref
+pytonlib==0.0.32
+
+# debug
+flower
+jupyter
+notebook
