@@ -1,25 +1,55 @@
 #!/bin/bash
 set -e
 
+# toncenter env: stage, testnet, mainnet
 export TONCENTER_ENV=${1:-stage}
 export INDEXER_REV=${2:-a}
-echo "TONCENTER_ENV: ${TONCENTER_ENV}"
-echo "INDEXER_REV: ${INDEXER_REV}"
 
-if [[ "${TONCENTER_ENV}" == "testnet" ]]; then
-    echo "Using testnet config"
-    export TON_INDEXER_LITESERVER_CONFIG=private/private.toncenter-testnet.json
-else
-    echo "Using mainnet config"
-    export TON_INDEXER_LITESERVER_CONFIG=private/private.toncenter.json
+export STACK_NAME="${TONCENTER_ENV}-indexer"
+echo "Stack: ${STACK_NAME}"
+
+if [ -f ".env.${TONCENTER_ENV}" ]; then
+    echo "Found env for ${TONCENTER_ENV}"
+    ENV_FILE=".env.${TONCENTER_ENV}"
+elif [ -f ".env" ]; then
+    echo "Found default .env"
+    ENV_FILE=".env"
 fi
 
-export $(cat .env) > /dev/null|| echo "No .env file"
+# load environment variables
+if [ ! -z "${ENV_FILE}" ]; then
+    set -a
+    source ${ENV_FILE}
+    set +a
+fi
 
+if [ -z "${TON_INDEXER_LITESERVER_CONFIG}" ]; then
+    if [[ "${TONCENTER_ENV}" == "testnet" ]]; then
+        echo "Using testnet config"
+        export TON_INDEXER_LITESERVER_CONFIG=private/testnet.json
+    else
+        echo "Using mainnet config"
+        export TON_INDEXER_LITESERVER_CONFIG=private/mainnet.json
+    fi
+else
+    echo "TON_INDEXER_LITESERVER_CONFIG is set"
+fi
+
+# set revision of indexer
 INDEXER_WORKER_NAME=${INDEXER_REV} envsubst '$INDEXER_WORKER_NAME' < docker-compose.swarm.yaml > docker-compose.printed.yaml
 
+# build
 docker compose -f docker-compose.printed.yaml build
 docker compose -f docker-compose.printed.yaml push
 
-docker stack deploy -c docker-compose.printed.yaml ${TONCENTER_ENV}-indexer
-rm -f docker-compose.printed.yaml
+# deploy
+docker stack deploy -c docker-compose.printed.yaml ${STACK_NAME}
+rm -f docker-compose.printed.yaml  # clear up
+
+# attach to global network
+GLOBAL_NET_NAME=$(docker network ls --format '{{.Name}}' --filter NAME=toncenter-global)
+
+if [ ! -z "$GLOBAL_NET_NAME" ]; then
+    echo "Found network: ${GLOBAL_NET_NAME}"
+    docker service update --detach --network-add name=${GLOBAL_NET_NAME},alias=${TONCENTER_ENV}-indexer-api-${INDEXER_REV} ${STACK_NAME}_indexer-api-${INDEXER_REV}
+fi

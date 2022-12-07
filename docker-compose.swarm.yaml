@@ -56,7 +56,7 @@ services:
     networks:
       - internal
   indexer-worker-${INDEXER_WORKER_NAME}:
-    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    image: localhost:5000/ton-indexer:${TONCENTER_ENV}-${INDEXER_REV:?}
     build:
       context: indexer
       dockerfile: Dockerfile
@@ -90,7 +90,8 @@ services:
       mode: replicated
       replicas: 1
       restart_policy:
-        condition: on-failure
+        condition: any
+        delay: 30s
       placement:
         constraints:
           - "node.labels.${TONCENTER_ENV:?}.indexer.worker-${INDEXER_REV:?}==true"
@@ -98,7 +99,7 @@ services:
     networks:
       - internal
   indexer-scheduler-backward-${INDEXER_WORKER_NAME}:
-    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    image: localhost:5000/ton-indexer:${TONCENTER_ENV}-${INDEXER_REV:?}
     command: python3 -m indexer.scheduler backward backward_queue_${INDEXER_REV:?}
     environment: *indexer-environment
     secrets:
@@ -115,7 +116,7 @@ services:
         constraints:
           - "node.labels.${TONCENTER_ENV:?}.indexer.worker-${INDEXER_REV:?}==true"
   indexer-scheduler-forward-${INDEXER_WORKER_NAME}:
-    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    image: localhost:5000/ton-indexer:${TONCENTER_ENV}-${INDEXER_REV:?}
     command: python3 -m indexer.scheduler forward forward_queue_${INDEXER_REV:?}
     environment: *indexer-environment
     secrets:
@@ -132,7 +133,7 @@ services:
         constraints:
           - "node.labels.${TONCENTER_ENV:?}.indexer.worker-${INDEXER_REV:?}==true"
   indexer-api-${INDEXER_WORKER_NAME}:
-    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    image: localhost:5000/ton-indexer:${TONCENTER_ENV}-${INDEXER_REV:?}
     secrets:
       - postgres_password
       - tonlib_config
@@ -143,13 +144,12 @@ services:
       replicas: 1
       placement:
         constraints:
-          - "node.hostname==toncenter-dev"
+          - "node.labels.${TONCENTER_ENV:?}.indexer.api-${INDEXER_REV:?}==true"
     networks:
-      internal:
-      main:
+      - internal
 # monitoring
   flower:
-    image: localhost:5000/ton-indexer-${INDEXER_REV:?}:latest
+    image: localhost:5000/ton-indexer:${TONCENTER_ENV}-${INDEXER_REV:?}
     environment: *indexer-environment
     secrets:
       - postgres_password
@@ -164,22 +164,14 @@ services:
         constraints:
           - "node.labels.${TONCENTER_ENV:?}.indexer.broker==true"
     networks:
-      internal:
-      monitor_main:
-        aliases:
-          - ${TONCENTER_ENV:?}_flower
+      - internal
 volumes:
   postgres_data:
     external: false
 networks:
   internal:
-    external: false
     attachable: true
-  monitor_main:
-    external: true
-  main:
-    name: ${TONCENTER_ENV:?}_main
-    external: true
+    external: false
 secrets:
   postgres_password:
     file: private/postgres_password
