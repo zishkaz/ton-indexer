@@ -29,8 +29,8 @@ services:
     environment: 
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    ports:
-      - 5432:5432
+    # ports:
+    #   - 5432:5432
     secrets:
       - postgres_password
     command: postgres -c shared_buffers=2048MB -c max_connections=1024
@@ -49,7 +49,7 @@ services:
       mode: replicated
       replicas: 1
       restart_policy:
-        condition: on-failure
+        condition: any
       placement:
         constraints:
           - "node.labels.${TONCENTER_ENV:?}.indexer.storage==true"
@@ -61,8 +61,8 @@ services:
       context: indexer
       dockerfile: Dockerfile
       args:
-        TON_REPO: dungeon-master-666/ton
-        TON_BRANCH: 28b4fa4decddb303aaa94f76804a89630ad6314c  
+        TON_REPO:
+        TON_BRANCH:
     command: celery -A indexer.core worker --loglevel=INFO -E --autoscale=${TON_INDEXER_MAX_WORKERS:-8},${TON_INDEXER_MIN_WORKERS:-1} \
              -Q backward_queue_${INDEXER_REV:?},forward_queue_${INDEXER_REV:?}
     environment: &indexer-environment
@@ -137,7 +137,7 @@ services:
     secrets:
       - postgres_password
       - tonlib_config
-    command: gunicorn indexer.web:app -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:8081
+    command: gunicorn indexer.web:app -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:8081 -w 8
     environment: *indexer-environment 
     deploy:
       mode: replicated
@@ -145,24 +145,6 @@ services:
       placement:
         constraints:
           - "node.labels.${TONCENTER_ENV:?}.indexer.api-${INDEXER_REV:?}==true"
-    networks:
-      - internal
-# monitoring
-  flower:
-    image: localhost:5000/ton-indexer:${TONCENTER_ENV}-${INDEXER_REV:?}
-    environment: *indexer-environment
-    secrets:
-      - postgres_password
-      - tonlib_config
-    command: celery -A indexer.core --broker=amqp://rabbitmq:5672 flower
-    deploy:
-      mode: replicated
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-      placement:
-        constraints:
-          - "node.labels.${TONCENTER_ENV:?}.indexer.broker==true"
     networks:
       - internal
 volumes:

@@ -110,13 +110,21 @@ async def insert_by_seqno_core(session, blocks_raw, headers_raw, transactions_ra
 
                 if 'in_msg' in tx_details_raw:
                     in_msg_raw = tx_details_raw['in_msg']
-                    in_msg = Message.raw_msg_to_dict(in_msg_raw)
+                    try:
+                        in_msg = Message.raw_msg_to_dict(in_msg_raw)
+                    except Exception as ee:
+                        logger.error(f'Failed to parse in_msg of transaction: {tx_raw}. Error: {ee}. Type: {type(ee)}')
+                        raise RuntimeError("Failed parsing transaction")
                     in_msg['in_tx_id'] = res.inserted_primary_key[0]
                     in_msg['out_tx_id'] = None
                     in_msgs_by_hash[in_msg['hash']].append(in_msg)
                     msg_contents_by_hash[in_msg['hash']] = MessageContent.raw_msg_to_content_dict(in_msg_raw)
                 for out_msg_raw in tx_details_raw['out_msgs']:
-                    out_msg = Message.raw_msg_to_dict(out_msg_raw)
+                    try:
+                        out_msg = Message.raw_msg_to_dict(out_msg_raw)
+                    except Exception as ee:
+                        logger.error(f'Failed to parse out_msg of transaction: {tx_raw}. Error: {ee}. Type: {type(ee)}')
+                        raise RuntimeError("Failed parsing transaction")
                     out_msg['out_tx_id'] = res.inserted_primary_key[0]
                     out_msg['in_tx_id'] = None
                     out_msgs_by_hash[out_msg['hash']].append(out_msg)

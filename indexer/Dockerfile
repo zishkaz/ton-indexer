@@ -1,7 +1,4 @@
 FROM ubuntu:20.04 as tonlib-builder
-ARG TON_REPO
-ARG TON_BRANCH
-
 RUN apt-get update
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
 
@@ -11,6 +8,8 @@ RUN apt install -y build-essential cmake clang openssl libssl-dev zlib1g-dev gpe
 WORKDIR /
 
 # remove /tree/<commit> to build master branch
+ARG TON_REPO
+ARG TON_BRANCH
 RUN git clone --recurse-submodules https://github.com/${TON_REPO:-ton-blockchain/ton}
 WORKDIR /ton
 RUN git checkout ${TON_BRANCH:-master}
@@ -40,7 +39,4 @@ WORKDIR /app
 
 # entrypoint
 ENV C_FORCE_ROOT 1
-# ENTRYPOINT ["celery", "-A", "indexer", "worker", "--loglevel=INFO"]
-# ENTRYPOINT ["python3", "-m", "scheduler"]
-# ENTRYPOINT ["gunicorn", "webserver.main:app", "-k", "uvicorn.workers.UvicornWorker"]
 ENTRYPOINT [ "/app/entrypoint.sh" ]
