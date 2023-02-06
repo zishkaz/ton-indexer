@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import time
 import sys
@@ -263,18 +264,25 @@ class ForwardScheduler(IndexScheduler):
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
+
+    parser = argparse.ArgumentParser('ton-index scheduler')
+    parser.add_argument('-q', '--queue', type=str, default=None, help='Task queue')
+    parser.add_argument('-i', '--init', action='store_true', help='Init database')
+    parser.add_argument('direction', type=str, choices=['forward', 'backward'], help='Scheduler type')
+    args = parser.parse_args()
+
+    if args.queue is None:
+        args.queue = args.direction + "_queue"
     
     logger.info('Sleeping 10 seconds before start')
     time.sleep(10)
-    if sys.argv[1] == 'backward':
-        init_database(create=True)
-        wait_for_broker_connection()
-        scheduler = BackwardScheduler(sys.argv[2])
-        scheduler.run()
-    elif sys.argv[1] == 'forward':
-        init_database(create=False)
-        wait_for_broker_connection()
-        scheduler = ForwardScheduler(sys.argv[2])
-        scheduler.run()
-    else:
-        raise Exception("Pass direction in argument: backward/forward")
+    init_database(create=args.init)
+    wait_for_broker_connection()
+    
+    if args.direction == 'backward':
+        scheduler = BackwardScheduler(args.queue)
+    elif args.direction == 'forward':
+        scheduler = ForwardScheduler(args.queue)
+    
+    scheduler.run()
+

@@ -1,9 +1,9 @@
 version: '3.9'
 
-x-indexer-environment: &x-indexer-environment
+x-indexer-environment: &indexer-environment
   POSTGRES_USER: postgres
   POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-  POSTGRES_DBNAME: ton_index_${INDEXER_REV:?}
+  POSTGRES_DBNAME: ton_index
   TON_INDEXER_LITESERVER_CONFIG: /run/secrets/tonlib_config
   TON_INDEXER_AMQP_DSN: amqp://rabbitmq:5672
   TON_INDEXER_REDIS_DSN: redis://redis:6379
@@ -90,7 +90,7 @@ services:
         TON_BRANCH:
     command: celery -A indexer.core worker --loglevel=INFO -E --autoscale=${TON_INDEXER_MAX_WORKERS:-8},${TON_INDEXER_MIN_WORKERS:-1} \
              -Q backward_queue,forward_queue
-    environment: *x-indexer-environment
+    environment: *indexer-environment
     secrets:
       - postgres_password
       - tonlib_config
@@ -108,7 +108,7 @@ services:
       internal:
   # indexer-scheduler-backward:
   #   image: localhost:5000/ton-indexer:${TONCENTER_ENV}
-  #   command: python3 -m indexer.scheduler backward backward_queue
+  #   command: python3 -m indexer.scheduler --init --queue backward_queue backward
   #   environment: *indexer-environment
   #   secrets:
   #     - postgres_password
@@ -126,7 +126,7 @@ services:
 
   indexer-scheduler-forward:
     image: localhost:5000/ton-indexer:${TONCENTER_ENV}
-    command: python3 -m indexer.scheduler forward forward_queue
+    command: python3 -m indexer.scheduler --init --queue forward_queue forward
     environment: *indexer-environment
     secrets:
       - postgres_password
@@ -160,6 +160,7 @@ services:
       toncenter-global:
         aliases:
           - ${TONCENTER_ENV:?}-indexer-api
+
 volumes:
   postgres_data:
     external: false
