@@ -127,6 +127,4 @@ venv.bak/
 
 docker-compose.printed.yaml
 .env
-.env.mainnet
-.env.stage
-.env.testnet
+.env.*

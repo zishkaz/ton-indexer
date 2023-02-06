@@ -38,6 +38,14 @@ fi
 # set revision of indexer
 INDEXER_WORKER_NAME=${INDEXER_REV} envsubst '$INDEXER_WORKER_NAME' < docker-compose.swarm.yaml > docker-compose.printed.yaml
 
+# attach to global network
+GLOBAL_NET_NAME=$(docker network ls --format '{{.Name}}' --filter NAME=toncenter-global)
+
+if [ -z "$GLOBAL_NET_NAME" ]; then
+    echo "Found network: ${GLOBAL_NET_NAME}"
+    docker network create -d overlay toncenter-global
+fi
+
 # build
 docker compose -f docker-compose.printed.yaml build
 docker compose -f docker-compose.printed.yaml push
@@ -45,11 +53,3 @@ docker compose -f docker-compose.printed.yaml push
 # deploy
 docker stack deploy -c docker-compose.printed.yaml ${STACK_NAME}
 rm -f docker-compose.printed.yaml  # clear up
-
-# attach to global network
-GLOBAL_NET_NAME=$(docker network ls --format '{{.Name}}' --filter NAME=toncenter-global)
-
-if [ ! -z "$GLOBAL_NET_NAME" ]; then
-    echo "Found network: ${GLOBAL_NET_NAME}"
-    docker service update --detach --network-add name=${GLOBAL_NET_NAME},alias=${TONCENTER_ENV}-indexer-api-${INDEXER_REV} ${STACK_NAME}_indexer-api-${INDEXER_REV}
-fi
