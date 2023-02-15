@@ -34,7 +34,11 @@ settings = Settings()
 # init database
 def get_engine(settings: Settings):
     logger.critical(settings.pg_dsn)
-    engine = create_async_engine(settings.pg_dsn, pool_size=128, max_overflow=24, echo=False)
+    engine = create_async_engine(settings.pg_dsn, 
+                                 pool_size=128, 
+                                 max_overflow=24, 
+                                 pool_timeout=128,
+                                 echo=False)
     return engine
 
 engine = get_engine(settings)

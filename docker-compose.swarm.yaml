@@ -81,7 +81,7 @@ services:
       internal:
 
   indexer-worker:
-    image: localhost:5000/ton-indexer:${TONCENTER_ENV}
+    image: ${DOCKER_REGISTRY:-localhost:5000}/ton-indexer:${TONCENTER_ENV}
     build:
       context: indexer
       dockerfile: Dockerfile
@@ -107,7 +107,7 @@ services:
     networks:
       internal:
   # indexer-scheduler-backward:
-  #   image: localhost:5000/ton-indexer:${TONCENTER_ENV}
+  #   image: ${DOCKER_REGISTRY:-localhost:5000}/ton-indexer:${TONCENTER_ENV}
   #   command: python3 -m indexer.scheduler --init --queue backward_queue backward
   #   environment: *indexer-environment
   #   secrets:
@@ -125,7 +125,7 @@ services:
   #         - "node.labels.${TONCENTER_ENV:?}.indexer.worker==true"
 
   indexer-scheduler-forward:
-    image: localhost:5000/ton-indexer:${TONCENTER_ENV}
+    image: ${DOCKER_REGISTRY:-localhost:5000}/ton-indexer:${TONCENTER_ENV}
     command: python3 -m indexer.scheduler --init --queue forward_queue forward
     environment: *indexer-environment
     secrets:
@@ -143,7 +143,7 @@ services:
           - "node.labels.${TONCENTER_ENV:?}.indexer.worker==true"
 
   indexer-api:
-    image: localhost:5000/ton-indexer:${TONCENTER_ENV}
+    image: ${DOCKER_REGISTRY:-localhost:5000}/ton-indexer:${TONCENTER_ENV}
     secrets:
       - postgres_password
       - tonlib_config
