@@ -19,7 +19,7 @@ sqlalchemy-utils
 tqdm
 requests
 asgiref
-pytonlib==0.0.43
+pytonlib==0.0.45
 
 # debug
 flower
