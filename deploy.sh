@@ -44,8 +44,9 @@ if [ -z "$GLOBAL_NET_NAME" ]; then
 fi
 
 # build
+echo "Docker registry: ${DOCKER_REGISTRY}"
 docker compose -f docker-compose.swarm.yaml build # --no-cache
 docker compose -f docker-compose.swarm.yaml push
 
 # deploy
-docker stack deploy -c docker-compose.swarm.yaml ${STACK_NAME}
+docker stack deploy --with-registry-auth -c docker-compose.swarm.yaml ${STACK_NAME}
