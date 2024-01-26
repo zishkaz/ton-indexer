@@ -16,7 +16,7 @@ from indexer.core.database import (
     JettonWallet,
     JettonTransfer,
     JettonBurn,
-    Event,
+    Trace,
     LatestAccountState,
     MASTERCHAIN_INDEX,
     MASTERCHAIN_SHARD
@@ -153,9 +153,9 @@ def augment_transaction_query(query: Query,
         query = query.options(selectinload(Transaction.block))
 
     if include_trace:
-        event_query = selectinload(Transaction.event)
-        query = query.options(event_query.selectinload(Event.edges))
-        query = query.options(event_query.selectinload(Event.transactions).selectinload(Transaction.messages))
+        trace_query = selectinload(Transaction.trace)
+        query = query.options(trace_query.selectinload(Trace.edges))
+        query = query.options(trace_query.selectinload(Trace.transactions).selectinload(Transaction.messages))
     
     msg_join = selectinload(Transaction.messages).selectinload(TransactionMessage.message)
     if include_msg_body:
@@ -320,23 +320,23 @@ def get_adjacent_transactions(session: Session,
 
 
 def get_traces(session: Session,
-               event_ids: Optional[List[int]]=None,
+               trace_ids: Optional[List[int]]=None,
                tx_hashes: Optional[List[str]]=None):
-    if not event_ids and not tx_hashes:
-        raise RuntimeError('event_ids or tx_hashes are required')
+    if not trace_ids and not tx_hashes:
+        raise RuntimeError('trace_ids or tx_hashes are required')
     if tx_hashes:
-        if event_ids is not None:
-            raise RuntimeError('event_ids should be None when using tx_hashes')
-        subquery = session.query(Transaction.hash, Transaction.event_id) \
+        if trace_ids is not None:
+            raise RuntimeError('trace_ids should be None when using tx_hashes')
+        subquery = session.query(Transaction.hash, Transaction.trace_id) \
                           .filter(Transaction.hash.in_(tx_hashes))
-        event_ids = dict(subquery.all())
-        event_ids = [event_ids.get(x) for x in tx_hashes]        
+        trace_ids = dict(subquery.all())
+        trace_ids = [trace_ids.get(x) for x in tx_hashes]        
     
-    query = session.query(Event)
-    query = query.filter(Event.id.in_([x for x in event_ids if x is not None]))
-    query = query.options(selectinload(Event.edges))
+    query = session.query(Trace)
+    query = query.filter(Trace.id.in_([x for x in trace_ids if x is not None]))
+    query = query.options(selectinload(Trace.edges))
     
-    tx_join = selectinload(Event.transactions)
+    tx_join = selectinload(Trace.transactions)
     
     msg_join = tx_join.selectinload(Transaction.messages).selectinload(TransactionMessage.message)
     msg_join_1 = msg_join.selectinload(Message.message_content)
@@ -363,7 +363,7 @@ def get_traces(session: Session,
             if head_hash is None or head_hash == edge.right_tx_hash:
                 head_hash = edge.left_tx_hash
         result[raw.id] = nodes[head_hash]
-    return [result.get(x) for x in event_ids]
+    return [result.get(x) for x in trace_ids]
 
 
 def get_transaction_trace(session: Session, 

@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 def hash_type(value):
-    return b64_to_hex(value).upper() if value else None
+    # return b64_to_hex(value).upper() if value else None
+    return value
 
 def address_type(value):
     return address_to_raw(value).upper() if value and value != 'addr_none' else None

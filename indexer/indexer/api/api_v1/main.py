@@ -15,7 +15,7 @@ from indexer.core.utils import (
 )
 
 from indexer.api.api_v1 import schemas
-from indexer.core.database import SessionMaker
+from indexer.core.database import AsyncSessionMaker
 from indexer.core.settings import Settings
 from indexer.core.database import (
     MASTERCHAIN_INDEX,
@@ -34,7 +34,7 @@ router = APIRouter()
 
 # Dependency
 async def get_db():
-    async with SessionMaker() as db:
+    async with AsyncSessionMaker() as db:
         yield db
 
 
@@ -259,7 +259,7 @@ async def get_traces(
         trace_id = [int(x) for x in trace_id]
     if tx_hash is not None:
         tx_hash = [hash_to_b64(h) for h in tx_hash]
-    result = await db.run_sync(crud.get_traces, event_ids=trace_id, tx_hashes=tx_hash)
+    result = await db.run_sync(crud.get_traces, trace_ids=trace_id, tx_hashes=tx_hash)
     return [schemas.TransactionTrace.from_orm(trace) if trace is not None else None for trace in result]
 
 

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from pytonlib.utils.address import detect_address
 from pytonlib.utils.common import hex_to_b64str
 
-from indexer.core.database import SessionMaker
+from indexer.core.database import AsyncSessionMaker
 from indexer.api.api_old import schemas
 from indexer.core import crud, exceptions
 

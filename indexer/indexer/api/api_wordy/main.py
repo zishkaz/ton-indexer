@@ -15,7 +15,7 @@ from indexer.core.utils import (
 )
 
 from indexer.api.api_wordy import schemas
-from indexer.core.database import SessionMaker
+from indexer.core.database import AsyncSessionMaker
 from indexer.core.settings import Settings
 from indexer.core.database import (
     MASTERCHAIN_INDEX,
@@ -29,7 +29,7 @@ router = APIRouter()
 
 # Dependency
 async def get_db():
-    async with SessionMaker() as db:
+    async with AsyncSessionMaker() as db:
         yield db
 
 
