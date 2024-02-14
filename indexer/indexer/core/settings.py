@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -6,6 +7,8 @@ class Settings(BaseSettings):
     api_root_path: str = ''
     api_title: str = ''
     ton_http_api_endpoint: str = ''
+
+    cache_endpoint: Optional[str] = None
 
     class Config:
         env_prefix = 'ton_indexer_'

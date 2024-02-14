@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, status, Depends
 from fastapi.responses import JSONResponse
@@ -7,9 +8,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import get_swagger_ui_html
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from redis import asyncio as aioredis
+
 from indexer.api.api_v1.main import router as router_v1
-from indexer.api.api_old.main import router as router_old
-from indexer.api.api_wordy.main import router as router_wordy
+# from indexer.api.api_old.main import router as router_old
+# from indexer.api.api_wordy.main import router as router_wordy
 
 from indexer.core import exceptions
 from indexer.core.settings import Settings
@@ -22,12 +27,24 @@ logger = logging.getLogger(__name__)
 
 
 settings = Settings()
+
+@asynccontextmanager
+async def lifespan_func(app: FastAPI):
+    if settings.cache_endpoint:
+        redis = aioredis.from_url(settings.cache_endpoint)
+        FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+    logger.info('Setup complete')
+    yield
+    logger.info('Cleanup complete')
+
+
 description = 'TON Index collects data from a full node to PostgreSQL database and provides convenient API to an indexed blockchain.'
 app = FastAPI(title="TON Index" if not settings.api_title else settings.api_title,
               description=description,
               version='1.0.0',
               docs_url=None,
               redoc_url=None,
+              lifespan=lifespan_func,
               openapi_url=settings.api_root_path + '/openapi.json',
               dependencies=[Depends(api_key_dep)])
 
@@ -57,14 +74,9 @@ def generic_exception_handler(request, exc):
     return JSONResponse({'error' : str(exc)}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
-@app.on_event("startup")
-def startup():
-    logger.info('Service started successfully')
-
-
 app.include_router(router_v1, prefix=settings.api_root_path, include_in_schema=True, deprecated=False)
-app.include_router(router_old, prefix='/old', include_in_schema=False, deprecated=False, tags=['old'])
-app.include_router(router_wordy, prefix='/wordy', include_in_schema=False, deprecated=False, tags=['wordy'])
+# app.include_router(router_old, prefix='/old', include_in_schema=False, deprecated=False, tags=['old'])
+# app.include_router(router_wordy, prefix='/wordy', include_in_schema=False, deprecated=False, tags=['wordy'])
 
 app.mount(settings.api_root_path + "/static", StaticFiles(directory="indexer/api/static"), name="static")
 

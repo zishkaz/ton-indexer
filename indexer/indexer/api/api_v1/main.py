@@ -6,14 +6,15 @@ from fastapi import FastAPI, APIRouter, Depends, Query, Path, Body, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi_cache.decorator import cache
+
+from sqlalchemy.ext.asyncio import AsyncSession
 from indexer.core.utils import (
     address_to_raw, 
     hash_to_b64,
     hex_to_int
 )
-
 from indexer.api.api_v1 import schemas
 from indexer.core.database import SessionMaker
 from indexer.core.settings import Settings
@@ -274,7 +275,7 @@ async def get_traces(
     return [schemas.TransactionTrace.from_orm(trace) if trace is not None else None for trace in result]
 
 
-@router.get('/transactionTrace', response_model=schemas.TransactionTrace)
+@router.get('/transactionTrace', response_model=schemas.TransactionTrace, include_in_schema=False)
 async def get_transaction_trace(
     hash: str = Query(..., description='Transaction hash. Acceptable in hex, base64 and base64url forms.'),
     sort: str = Query('asc', description='Sort transactions by lt.', enum=['none', 'asc', 'desc']),
