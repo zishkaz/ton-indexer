@@ -632,6 +632,9 @@ def get_jetton_wallets(session: Session,
     query = limit_query(query, limit, offset)
     return query.all()
 
+def count_jetton_wallets(session: Session, jetton_address: str) -> int:
+    return session.query(JettonWallet).filter(JettonWallet.jetton == jetton_address).count()
+
 
 def get_jetton_transfers(session: Session,
                          account: Optional[str]=None,

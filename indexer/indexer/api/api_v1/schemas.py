@@ -595,10 +595,14 @@ class JettonWallet(BaseModel):
 
 class JettonWalletList(BaseModel):
     jetton_wallets: List[JettonWallet]
+    size: int
 
     @classmethod
-    def from_orm(cls, obj):
-        return JettonWalletList(jetton_wallets=[JettonWallet.from_orm(x) for x in obj])
+    def from_orm(cls, obj, size=0):
+        return JettonWalletList(
+            jetton_wallets=[JettonWallet.from_orm(x) for x in obj],
+            size=size
+        )
 
 class JettonTransfer(BaseModel):
     model_config = ConfigDict(coerce_numbers_to_str=True)

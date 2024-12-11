@@ -532,7 +532,11 @@ async def get_jetton_wallets(
                             jetton_address=jetton_address,
                             limit=limit,
                             offset=offset)
-    return schemas.JettonWalletList.from_orm(res)
+
+    count = await db.run_sync(crud.count_jetton_wallets,
+                             jetton_address=jetton_address)
+
+    return schemas.JettonWalletList.from_orm(res, size=count)
 
 
 @router.get('/jetton/transfers', response_model=schemas.JettonTransferList, tags=['jettons'])
